@@ -3,9 +3,12 @@
 
 #include <vector>
 #include <list>
+#include <stack>
+#include <queue>
 #include "Nodo.h"
 
 template<typename T>
+
 class Grafo{
 private:
     std::vector<std::vector<int>> edges;
@@ -14,8 +17,8 @@ private:
 public:
     Grafo();
     ~Grafo();
-    void DFS();
-    void BFS();
+    void DFS(int idInicio);
+    void BFS(int idInicio);
     void plano();
     void agregarNodo(Nodo<T> nodo);
     void eliminarNodo(int id);
