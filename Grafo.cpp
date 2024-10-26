@@ -1,6 +1,9 @@
 #include "Grafo.h"
 #include <iostream>
 #include <stdexcept>
+#include <stack>
+#include <queue>
+
 
 template<typename T>
 Grafo<T>::Grafo()
@@ -13,7 +16,7 @@ Grafo<T>::~Grafo()
 }
 
 template<typename T>
-void Grafo<T>::DFS(int idInicio)
+void Grafo<T>::DFS_Matriz(int idInicio)
 {
     std::vector<bool> visitado(vertices.size(), false);
     std::stack<int> stack;
@@ -43,7 +46,7 @@ void Grafo<T>::DFS(int idInicio)
 }
 
 template<typename T>
-void Grafo<T>::BFS(int idInicio)
+void Grafo<T>::BFS_Matriz(int idInicio)
 {
     std::vector<bool> visitado(vertices.size(), false);  // Vector de nodos visitados
     std::queue<int> queue;
@@ -70,9 +73,9 @@ void Grafo<T>::BFS(int idInicio)
 }
 
 template<typename T>
-void Grafo<T>::plano()
+void Grafo<T>::plano_Matriz()
 {
-    std::cout << "Representación del grafo en plano:\n";
+    std::cout << "Representacion del grafo en plano:\n";
     for (auto it = vertices.begin(); it != vertices.end(); ++it)
     {
         std::cout << "Nodo " << it->id << ": "; // Usar el iterador para acceder al nodo
@@ -90,6 +93,91 @@ void Grafo<T>::plano()
             }
         }
         std::cout << std::endl; // Nueva línea para cada nodo
+    }
+}
+
+template<typename T>
+void Grafo<T>::DFS_Lista(int idInicio)
+{
+    if (adjList.find(idInicio) == adjList.end())
+    {
+        std::cout << "El nodo de inicio no existe en el grafo.\n";
+        return;
+    }
+
+    std::unordered_map<int, bool> visitado;
+    std::stack<int> stack;
+
+    stack.push(idInicio);
+
+    while (!stack.empty())
+    {
+        int idNodo = stack.top();
+        stack.pop();
+
+        if (!visitado[idNodo])
+        {
+            visitado[idNodo] = true;
+            std::cout << "Visitando nodo " << idNodo << std::endl;
+
+            // Agrega los nodos adyacentes no visitados
+            for (int vecino : adjList[idNodo])
+            {
+                if (!visitado[vecino])
+                {
+                    stack.push(vecino);
+                }
+            }
+        }
+    }
+}
+
+template<typename T>
+void Grafo<T>::BFS_Lista(int idInicio)
+{
+    if (adjList.find(idInicio) == adjList.end())
+    {
+        std::cout << "El nodo de inicio no existe en el grafo.\n";
+        return;
+    }
+
+    std::unordered_map<int, bool> visitado;
+    std::queue<int> queue;
+
+    visitado[idInicio] = true;
+    queue.push(idInicio);
+
+    while (!queue.empty())
+    {
+        int idNodo = queue.front();
+        queue.pop();
+        std::cout << "Visitando nodo " << idNodo << std::endl;
+
+        // Agrega los nodos adyacentes no visitados
+        for (int vecino : adjList[idNodo])
+        {
+            if (!visitado[vecino])
+            {
+                visitado[vecino] = true;
+                queue.push(vecino);
+            }
+        }
+    }
+}
+
+template<typename T>
+void Grafo<T>::plano_Lista()
+{
+    for (const auto& par : adjList) {
+        auto nodo = par.first;
+        auto listaAdyacentes = par.second;
+
+        // Imprimir el nodo y su lista de adyacentes (o procesar como necesites)
+        std::cout << "Nodo: " << nodo << " tiene adyacentes: ";
+        for (const auto& adyacente : listaAdyacentes) {
+            std::cout << adyacente << " ";
+        }
+        std::cout << std::endl;
     }
 }
 
@@ -156,20 +244,35 @@ Nodo<T>* Grafo<T>::getNodo(int id)
     return nullptr;
 }
 
-
 template<typename T>
-std::vector<std::pair<int, int>> Grafo<T>::convertPairs()
+void Grafo<T>::convertirALista()
 {
-    std::vector<std::pair<int, int>> pairs;
+    adjList.clear(); // Limpiar la lista de adyacencia actual
     for (size_t i = 0; i < edges.size(); ++i)
     {
         for (size_t j = 0; j < edges[i].size(); ++j)
         {
-            if (edges[i][j] != 0)
+            if (edges[i][j] == 1)   // Hay arista
             {
-                pairs.push_back({i, j});
+                adjList[i].push_back(j);
             }
         }
     }
-    return pairs;
+}
+
+template<typename T>
+void Grafo<T>::convertirAMatriz()
+{
+    edges.clear();
+    edges.resize(vertices.size(), std::vector<int>(vertices.size(), 0));
+
+    for (auto it = adjList.begin(); it != adjList.end(); ++it)
+    {
+        int origen = it->first;
+        const std::vector<int>& listaAdyacente = it->second;
+        for (int destino : listaAdyacente)
+        {
+            edges[origen][destino] = 1;
+        }
+    }
 }
