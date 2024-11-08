@@ -1,278 +1,603 @@
 #include "Grafo.h"
-#include <iostream>
-#include <stdexcept>
-#include <stack>
-#include <queue>
+#include "Comando.h"
 
+template<typename T, typename E>
+Grafo<T,E>::Grafo() {}
 
-template<typename T>
-Grafo<T>::Grafo()
+template<typename T, typename E>
+Grafo<T,E>::~Grafo() {}
+
+template<typename T, typename E>
+void Grafo<T,E>::agregarNodo(const std::string& id, const T& nodo)
 {
+    if (nodoIndices.find(id) == nodoIndices.end())
+    {
+        int index = nodos.size();
+        nodoIndices[id] = index;
+        nodos.push_back(nodo);
+
+        for (auto& fila : matrizAdyacencia)
+        {
+            fila.push_back(std::numeric_limits<int>::max());
+        }
+        matrizAdyacencia.push_back(std::vector<int>(nodos.size(), std::numeric_limits<int>::max()));
+        matrizAdyacencia[index][index] = 0;
+    }
 }
 
-template<typename T>
-Grafo<T>::~Grafo()
+template<typename T, typename E>
+void Grafo<T,E>::eliminarNodo(const std::string& id)
 {
+    auto it = nodoIndices.find(id);
+    if (it != nodoIndices.end())
+    {
+        int index = it->second;
+        nodos.erase(nodos.begin() + index);
+        matrizAdyacencia.erase(matrizAdyacencia.begin() + index);
+        for (auto& fila : matrizAdyacencia)
+        {
+            fila.erase(fila.begin() + index);
+        }
+        nodoIndices.erase(it);
+    }
 }
 
-template<typename T>
-void Grafo<T>::DFS_Matriz(int idInicio)
+template<typename T, typename E>
+void Grafo<T,E>::agregarArista(const E& arista)
 {
-    std::vector<bool> visitado(vertices.size(), false);
+    int peso = arista.getPeso();
+    std::string source = arista.getSource();
+    std::string target = arista.getTarget();
+
+    if (nodoIndices.find(source) != nodoIndices.end() && nodoIndices.find(target) != nodoIndices.end())
+    {
+        int sourceIndex = nodoIndices[source];
+        int targetIndex = nodoIndices[target];
+
+        if (matrizAdyacencia[sourceIndex][targetIndex] == std::numeric_limits<int>::max()) {
+            // Nueva arista
+            matrizAdyacencia[sourceIndex][targetIndex] = peso;
+            if (arista.getType() != "Directed") {
+                matrizAdyacencia[targetIndex][sourceIndex] = peso;
+            }
+        } else {
+            // Actualizar peso sumando la cantidad de interacciones
+            matrizAdyacencia[sourceIndex][targetIndex] += peso;
+            if (arista.getType() != "Directed") {
+                matrizAdyacencia[targetIndex][sourceIndex] += peso;
+            }
+        }
+
+        aristas.push_back(arista);
+    }
+}
+
+
+template<typename T, typename E>
+void Grafo<T,E>::DFS(const std::string& inicio) const
+{
+    if (nodoIndices.find(inicio) == nodoIndices.end())
+    {
+        throw std::out_of_range("Nodo inicial no encontrado");
+    }
+
+    std::vector<bool> visitado(nodos.size(), false);
     std::stack<int> stack;
+    int inicioIndex = nodoIndices.at(inicio);
 
-    stack.push(idInicio);
+    std::cout << "Recorrido DFS comenzando desde " << inicio << ":\n";
+    std::cout << std::string(40, '-') << std::endl;
+
+    // Comenzar con el nodo inicial
+    stack.push(inicioIndex);
 
     while (!stack.empty())
     {
-        int idNodo = stack.top();
+        int nodoActual = stack.top();
         stack.pop();
 
-        if (!visitado[idNodo])
+        if (!visitado[nodoActual])
         {
-            visitado[idNodo] = true;
-            std::cout << "Visitando nodo " << idNodo << std::endl;
+            // Marcar como visitado y
+            visitado[nodoActual] = true;
+            std::cout << "- " << std::setw(20) << std::left << nodos[nodoActual].getNombre() << std::endl;
 
-            // Agregamos los nodos adyacentes no visitados
-            for (size_t i = 0; i < edges[idNodo].size(); ++i)
+            // Verificar si hay más nodos por visitar
+            bool tieneVecinos = false;
+            for (int i = matrizAdyacencia[nodoActual].size() - 1; i >= 0; --i)
             {
-                if (edges[idNodo][i] == 1 && !visitado[i])
+                if (matrizAdyacencia[nodoActual][i] != std::numeric_limits<int>::max() && !visitado[i])
                 {
                     stack.push(i);
+                    tieneVecinos = true;
                 }
             }
+            /*
+
+            // Agregar una flecha si hay más nodos por visitar
+            if (!stack.empty() && tieneVecinos)
+            {
+                std::cout << " -> ";
+            }
+            else
+            {
+                std::cout << std::endl;
+            }
+            */
         }
     }
+    std::cout << "\nFin del recorrido DFS" << std::endl;
 }
 
-template<typename T>
-void Grafo<T>::BFS_Matriz(int idInicio)
+template<typename T, typename E>
+void Grafo<T,E>::BFS(const std::string& inicio) const
 {
-    std::vector<bool> visitado(vertices.size(), false);  // Vector de nodos visitados
-    std::queue<int> queue;
-
-    visitado[idInicio] = true;
-    queue.push(idInicio);
-
-    while (!queue.empty())
+    if (nodoIndices.find(inicio) == nodoIndices.end())
     {
-        int idNodo = queue.front();
-        queue.pop();
-        std::cout << "Visitando nodo " << idNodo << std::endl;
+        throw std::out_of_range("Nodo inicial no encontrado");
+    }
 
-        // Agregamos los nodos adyacentes no visitados
-        for (size_t i = 0; i < edges[idNodo].size(); ++i)
+    std::vector<bool> visitado(nodos.size(), false);
+    std::queue<int> cola;
+    int inicioIndex = nodoIndices.at(inicio);
+
+    std::cout << "Recorrido BFS comenzando desde " << inicio << ":\n";
+    std::cout << std::string(40, '-') << std::endl;
+
+    // Comenzar con el nodo inicial
+    cola.push(inicioIndex);
+    visitado[inicioIndex] = true;  // Marcamos como visitado al agregar a la cola
+
+    while (!cola.empty())
+    {
+        int nodoActual = cola.front();
+        cola.pop();
+
+        // Mostrar el nodo actual
+        std::cout << "- " << std::setw(20) << std::left << nodos[nodoActual].getNombre() << std::endl;
+
+
+
+        // Contador para vecinos no visitados
+        int vecinosNoVisitados = 0;
+
+        // Agregar todos los vecinos no visitados a la cola
+        for (size_t i = 0; i < matrizAdyacencia[nodoActual].size(); ++i)
         {
-            if (edges[idNodo][i] == 1 && !visitado[i])
+            if (matrizAdyacencia[nodoActual][i] != std::numeric_limits<int>::max() && !visitado[i])
             {
-                visitado[i] = true;
-                queue.push(i);
+                cola.push(i);
+                visitado[i] = true;  // Marcamos como visitado al agregar a la cola
+                vecinosNoVisitados++;
             }
         }
-    }
-}
+        /*
 
-template<typename T>
-void Grafo<T>::plano_Matriz()
-{
-    std::cout << "Representacion del grafo en plano:\n";
-    for (auto it = vertices.begin(); it != vertices.end(); ++it)
-    {
-        std::cout << "Nodo " << it->id << ": "; // Usar el iterador para acceder al nodo
-
-        // Obtener el �ndice actual del nodo
-        int index = std::distance(vertices.begin(), it);
-
-        for (size_t j = 0; j < edges[index].size(); ++j)
+        // Agregar una flecha si hay más nodos por visitar
+        if (!cola.empty() && vecinosNoVisitados > 0)
         {
-            if (edges[index][j] == 1)
-            {
-                // Usamos un nuevo iterador para acceder al nodo correspondiente
-                auto adjIt = std::next(vertices.begin(), j);
-                std::cout << " -> " << adjIt->id; // Imprime las aristas salientes
-            }
+            std::cout << " -> ";
         }
-        std::cout << std::endl; // Nueva l�nea para cada nodo
+        else
+        {
+            std::cout << std::endl;
+        }
+        */
     }
+    std::cout << "\nFin del recorrido BFS" << std::endl;
 }
 
-template<typename T>
-void Grafo<T>::DFS_Lista(int idInicio)
+template<typename T, typename E>
+void Grafo<T, E>::dijkstra(const std::string& inicio) const
 {
-    if (adjList.find(idInicio) == adjList.end())
+    if (nodoIndices.find(inicio) == nodoIndices.end())
     {
-        std::cout << "El nodo de inicio no existe en el grafo.\n";
-        return;
+        throw std::out_of_range("Nodo inicial no encontrado");
     }
 
-    std::unordered_map<int, bool> visitado;
-    std::stack<int> stack;
+    int inicioIndex = nodoIndices.at(inicio);
+    int V = nodos.size();
 
-    stack.push(idInicio);
+    // Vector de distancias y vector para almacenar el camino
+    std::vector<int> distancias(V, std::numeric_limits<int>::max());
+    std::vector<int> previo(V, -1);
+    std::vector<bool> visitado(V, false);
 
-    while (!stack.empty())
+    // Cola de prioridad para mantener los nodos por explorar
+    // pair<distancia, nodoIndex>
+    std::priority_queue<std::pair<int, int>,
+        std::vector<std::pair<int, int>>,
+        std::greater<std::pair<int, int>>> pq;
+
+    // Inicializar distancia del nodo inicial
+    distancias[inicioIndex] = 0;
+    pq.push({0, inicioIndex});
+
+    std::cout << "\nDistancias minimas desde el nodo '" << inicio << "':" << std::endl;
+    std::cout << std::string(50, '-') << std::endl;
+    std::cout << std::setw(20) << std::left << "Destino" << std::setw(20) << "Distancia" << "Camino" << std::endl;
+
+    while (!pq.empty())
     {
-        int idNodo = stack.top();
-        stack.pop();
+        int u = pq.top().second;
+        pq.pop();
 
-        if (!visitado[idNodo])
+        if (visitado[u]) continue;
+        visitado[u] = true;
+
+        // Explorar todos los vecinos del nodo actual
+        for (int v = 0; v < V; v++)
         {
-            visitado[idNodo] = true;
-            std::cout << "Visitando nodo " << idNodo << std::endl;
-
-            // Agrega los nodos adyacentes no visitados
-            for (int vecino : adjList[idNodo])
+            // Si hay una arista y no ha sido visitado
+            if (matrizAdyacencia[u][v] != std::numeric_limits<int>::max())
             {
-                if (!visitado[vecino])
+                int peso = matrizAdyacencia[u][v];
+
+                // Si encontramos un camino más corto
+                if (distancias[u] != std::numeric_limits<int>::max() &&
+                        distancias[u] + peso < distancias[v])
                 {
-                    stack.push(vecino);
+                    distancias[v] = distancias[u] + peso;
+                    previo[v] = u;
+                    pq.push({distancias[v], v});
                 }
             }
         }
     }
-}
 
-template<typename T>
-void Grafo<T>::BFS_Lista(int idInicio)
-{
-    if (adjList.find(idInicio) == adjList.end())
-    {
-        std::cout << "El nodo de inicio no existe en el grafo.\n";
-        return;
-    }
+    for (int i = 0; i < V; i++) {
+        if (distancias[i] == std::numeric_limits<int>::max()) continue;
+        std::cout << std::setw(20) << nodos[i].getNombre() << std::setw(10) << distancias[i];
 
-    std::unordered_map<int, bool> visitado;
-    std::queue<int> queue;
-
-    visitado[idInicio] = true;
-    queue.push(idInicio);
-
-    while (!queue.empty())
-    {
-        int idNodo = queue.front();
-        queue.pop();
-        std::cout << "Visitando nodo " << idNodo << std::endl;
-
-        // Agrega los nodos adyacentes no visitados
-        for (int vecino : adjList[idNodo])
-        {
-            if (!visitado[vecino])
-            {
-                visitado[vecino] = true;
-                queue.push(vecino);
-            }
+        // Imprimir camino
+        std::vector<int> camino;
+        for (int actual = i; actual != -1; actual = previo[actual]) {
+            camino.push_back(actual);
         }
-    }
-}
-
-template<typename T>
-void Grafo<T>::plano_Lista()
-{
-    for (const auto& par : adjList) {
-        auto nodo = par.first;
-        auto listaAdyacentes = par.second;
-
-        // Imprimir el nodo y su lista de adyacentes (o procesar como necesites)
-        std::cout << "Nodo: " << nodo << " tiene adyacentes: ";
-        for (const auto& adyacente : listaAdyacentes) {
-            std::cout << adyacente << " ";
+        for (int j = camino.size() - 1; j >= 0; j--) {
+            std::cout << nodos[camino[j]].getNombre();
+            if (j > 0) std::cout << " -> ";
         }
         std::cout << std::endl;
     }
 }
 
-template<typename T>
-void Grafo<T>::agregarNodo(Nodo<T> nodo)
+template<typename T, typename E>
+void Grafo<T, E>::floydWarshall()
 {
-    vertices.push_back(nodo);
-    for (auto& row : edges)
-    {
-        row.push_back(0);
-    }
-    edges.push_back(std::vector<int>(vertices.size(), 0));
-}
+    int V = nodos.size();
+    std::vector<std::vector<int>> dist = matrizAdyacencia;
 
-template<typename T>
-void Grafo<T>::eliminarNodo(int id)
-{
-    if (id < 0 || id >= vertices.size())
+    // Algoritmo de Floyd-Warshall
+    for (int k = 0; k < V; ++k)
     {
-        throw std::invalid_argument("ID de nodo inv�lido");
-    }
-
-    // Eliminar el nodo de la lista de v�rtices
-    auto it = vertices.begin();
-    std::advance(it, id);
-    vertices.erase(it);
-
-    // Eliminar el nodo de la matriz de adyacencia
-    edges.erase(edges.begin() + id);
-    for (auto& row : edges)
-    {
-        row.erase(row.begin() + id);
-    }
-
-    // Ajustar los �ndices de los nodos restantes
-    for (int i = id; i < edges.size(); ++i)
-    {
-        for (int j = 0; j < edges[i].size(); ++j)
+        for (int i = 0; i < V; ++i)
         {
-            if (edges[i][j] > id)
+            for (int j = 0; j < V; ++j)
             {
-                edges[i][j]--; // Decrementar �ndices de nodos mayores que id
+                if (dist[i][k] != std::numeric_limits<int>::max() &&
+                        dist[k][j] != std::numeric_limits<int>::max())
+                {
+                    long long suma = static_cast<long long>(dist[i][k]) + dist[k][j];
+                    if (suma < std::numeric_limits<int>::max())
+                    {
+                        dist[i][j] = std::min(dist[i][j], static_cast<int>(suma));
+                    }
+                }
             }
         }
     }
-}
 
-template<typename T>
-void Grafo<T>::addEdge(int origen, int destino)
-{
-    if (origen < edges.size() && destino < edges.size())
+    // Calcular el ancho máximo necesario para los nombres
+    size_t maxNombreLen = 0;
+    for (const auto& nodo : nodos)
     {
-        edges[origen][destino] = 1;
+        maxNombreLen = std::max(maxNombreLen, nodo.getNombre().length());
     }
-}
+    maxNombreLen = std::max(maxNombreLen, size_t(4)); // Mínimo 4 caracteres
 
-template<typename T>
-Nodo<T>* Grafo<T>::getNodo(int id)
-{
-    for (auto& nodo : vertices)
-    {
-        if (nodo.id == id) return &nodo;
+    // Imprimir la matriz con formato mejorado
+    std::cout << "\nMatriz de distancias minimas:\n\n";
+
+    // Imprimir encabezado
+     for (const auto& nodo : nodos) {
+        std::cout << std::setw(6) << nodo.getNombre().substr(0, 5);
     }
-    return nullptr;
-}
+    std::cout << '\n' << std::string((maxNombreLen + 2) + nodos.size() * 6, '-') << '\n';
 
-template<typename T>
-void Grafo<T>::convertirALista()
-{
-    adjList.clear(); // Limpiar la lista de adyacencia actual
-    for (size_t i = 0; i < edges.size(); ++i)
-    {
-        for (size_t j = 0; j < edges[i].size(); ++j)
-        {
-            if (edges[i][j] == 1)   // Hay arista
-            {
-                adjList[i].push_back(j);
+    for (int i = 0; i < V; ++i) {
+        std::cout << std::setw(maxNombreLen + 2) << nodos[i].getNombre();
+        for (int j = 0; j < V; ++j) {
+            if (dist[i][j] == std::numeric_limits<int>::max()) {
+                std::cout << std::setw(6) << "∞";
+            } else {
+                std::cout << std::setw(6) << dist[i][j];
             }
         }
+        std::cout << '\n';
     }
+    std::cout << "\nLeyenda: ∞ = No hay camino directo entre los nodos\n";
 }
 
-template<typename T>
-void Grafo<T>::convertirAMatriz()
+template<typename T, typename E>
+void Grafo<T,E>::planoGrafo()
 {
-    edges.clear();
-    edges.resize(vertices.size(), std::vector<int>(vertices.size(), 0));
-
-    for (auto it = adjList.begin(); it != adjList.end(); ++it)
+    std::cout << "Lista de nodos disponibles:" << std::endl;
+    std::cout << "-------------------------" << std::endl;
+    for (const auto& nodo : nodos)
     {
-        int origen = it->first;
-        const std::vector<int>& listaAdyacente = it->second;
-        for (int destino : listaAdyacente)
+        std::cout << "Nombre: " << nodo.getNombre()
+                  << " | Edad: " << nodo.getEdad()
+                  << " | Altura: " << nodo.getAltura()
+                  << " | Popularidad: " << nodo.getPopularidad()
+                  << std::endl;
+    }
+    std::cout << "-------------------------" << std::endl;
+}
+
+template<typename T, typename E>
+void Grafo<T, E>::generarGrafo(const std::string& pathNodos, const std::vector<std::string>& pathsAristas)
+{
+    std::ifstream fileNodos(pathNodos);
+    std::ifstream fileAristas(pathAristas);
+    std::string linea;
+
+    if (!fileNodos.is_open() || !fileAristas.is_open())
+    {
+        throw std::runtime_error("Error al abrir el/los archivos: " + pathNodos + " " + pathAristas);
+    }
+
+    std::cout << "Leyendo archivo de nodos..." << std::endl;
+
+    // Saltar la primera línea (cabecera) del archivo de nodos
+    std::getline(fileNodos, linea);
+
+    // Procesar el resto de las líneas
+    while (std::getline(fileNodos, linea))
+    {
+        try
         {
-            edges[origen][destino] = 1;
+            std::istringstream iss(linea);
+            std::string nombre, edadStr, alturaStr, popularidadStr;
+
+            getline(iss, nombre, ',');
+            getline(iss, edadStr, ',');
+            getline(iss, alturaStr, ',');
+            getline(iss, popularidadStr, ',');
+
+            // Eliminar espacios en blanco al inicio y final si los hay
+            nombre.erase(0, nombre.find_first_not_of(" \t\r\n"));
+            nombre.erase(nombre.find_last_not_of(" \t\r\n") + 1);
+            edadStr.erase(0, edadStr.find_first_not_of(" \t\r\n"));
+            edadStr.erase(edadStr.find_last_not_of(" \t\r\n") + 1);
+            alturaStr.erase(0, alturaStr.find_first_not_of(" \t\r\n"));
+            alturaStr.erase(alturaStr.find_last_not_of(" \t\r\n") + 1);
+            popularidadStr.erase(0, popularidadStr.find_first_not_of(" \t\r\n"));
+            popularidadStr.erase(popularidadStr.find_last_not_of(" \t\r\n") + 1);
+
+            int edad = std::stoi(edadStr);
+            float altura = std::stof(alturaStr);
+            int popularidad = std::stoi(popularidadStr);
+
+            agregarNodo(nombre, T(nombre, edad, altura, popularidad));
+        }
+        catch (const std::exception& e)
+        {
+            throw std::runtime_error("Error procesando nodo en línea: " + linea + ": " + e.what());
         }
     }
+    fileNodos.close();
+    for (const std::string& pathAristas : pathsAristas) {
+        std::ifstream fileAristas(pathAristas);
+        if (!fileAristas.is_open()) {
+            throw std::runtime_error("Error al abrir el archivo de relaciones: " + pathAristas);
+        }
+
+    std::cout << "Leyendo archivo de aristas..." << std::endl;
+
+    // Saltar la primera linea (cabecera) del archivo de aristas
+    std::getline(fileAristas, linea);
+
+    while (std::getline(fileAristas, linea))
+    {
+        try
+        {
+            std::istringstream iss(linea);
+            std::string source, target, type, pesoStr, libroStr;
+
+            getline(iss, source, ',');
+            getline(iss, target, ',');
+            getline(iss, type, ',');
+            getline(iss, pesoStr, ',');
+            getline(iss, libroStr, ',');
+
+            // Eliminar espacios en blanco
+            source.erase(0, source.find_first_not_of(" \t\r\n"));
+            source.erase(source.find_last_not_of(" \t\r\n") + 1);
+            target.erase(0, target.find_first_not_of(" \t\r\n"));
+            target.erase(target.find_last_not_of(" \t\r\n") + 1);
+            type.erase(0, type.find_first_not_of(" \t\r\n"));
+            type.erase(type.find_last_not_of(" \t\r\n") + 1);
+            pesoStr.erase(0, pesoStr.find_first_not_of(" \t\r\n"));
+            pesoStr.erase(pesoStr.find_last_not_of(" \t\r\n") + 1);
+            libroStr.erase(0, libroStr.find_first_not_of(" \t\r\n"));
+            libroStr.erase(libroStr.find_last_not_of(" \t\r\n") + 1);
+
+            std::string tipo = (type == "Directed") ? "Directed" : "Undirected";
+            int peso = std::stoi(pesoStr);
+            int libro = std::stoi(libroStr);
+
+            agregarArista(E(source, target, tipo, peso, libro));
+        }
+        catch (const std::exception& e)
+        {
+            throw std::runtime_error("Error procesando arista en línea: " + linea + ": " + e.what());
+        }
+    }
+    fileAristas.close();
 }
+
+template<typename T, typename E>
+const std::vector<std::vector<int>>& Grafo<T,E> ::obtenerMatrizAdyacencia()
+{
+    return matrizAdyacencia;
+}
+
+template<typename T, typename E>
+void Grafo<T, E>::cargarComandos(const std::string& nombreArchivo)
+{
+    std::ifstream archivo(nombreArchivo);
+    if (!archivo.is_open())
+    {
+        std::cerr << "No se pudo abrir el archivo de comandos: " << nombreArchivo << std::endl;
+        return;
+    }
+
+    std::string linea;
+    while (std::getline(archivo, linea))
+    {
+        std::istringstream iss(linea);
+        std::string nombre, parametros, descripcion;
+
+        if (std::getline(iss, nombre, '|') &&
+                std::getline(iss, parametros, '|') &&
+                std::getline(iss, descripcion, '|'))
+        {
+            Comando comando(nombre, parametros, descripcion);
+
+            comandos.push_back(comando);
+        }
+    }
+
+    archivo.close();
+}
+
+// Método para procesar comando -- Procesa un comando introducido por consolo por el usuario
+template<typename T, typename E>
+void Grafo<T, E>::procesarComando(const std::string& comando)
+{
+    std::istringstream iss(comando);
+    std::string nombre;
+    iss >> nombre;
+
+    if (nombre == "ayuda")
+    {
+        mostrarAyuda();
+    }
+    else if (nombre == "generarGrafo")
+    {
+    	std::string pathNodos = "Nodes.csv";
+    	std::vector<std::string> pathsAristas = {"book1.csv", "book2.csv", "book3.csv", "book4.csv", "book5.csv"};
+    	 try {
+		 std::cout << "Cargando archivos de nodos y relaciones..." << std::endl;
+        grafo.generarGrafo(pathNodos, pathsAristas);
+		// Aqu� puedes realizar m�s operaciones, como mostrar el grafo, hacer recorridos, etc.
+    	} catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    	}
+    }
+    else if (nombre == "DFS")
+    {
+        std::string inicio;
+        if (iss >> inicio)
+        {
+            DFS(inicio);
+        }
+        else
+        {
+            std::cerr << "\nError: Falta el inicio para hacer el recorrido.\n" << std::endl;
+        }
+    }
+    else if (nombre == "BFS")
+    {
+        std::string inicio;
+        if (iss >> inicio)
+        {
+            BFS(inicio);
+        }
+        else
+        {
+            std::cerr << "\nError: Falta el inicio para hacer el recorrido.\n" << std::endl;
+        }
+    }
+    else if (nombre == "Dijkstra")
+    {
+        std::string inicio;
+        if (iss >> inicio)
+        {
+            dijkstra(inicio);
+        }
+        else
+        {
+            std::cerr << "\nError: Falta el inicio para hacer el algoritmo.\n" << std::endl;
+        }
+    }
+    else if (nombre == "Floyd-Warshall")
+    {
+        floydWarshall();
+    }
+    else if (nombre == "plano")
+    {
+        planoGrafo();
+    }
+    else if (nombre == "guardar")
+    {
+        std::string inicio;
+        if (iss >> inicio)
+        {
+            dijkstra(inicio);
+        }
+        else
+        {
+            std::cerr << "\nError: Falta el inicio para hacer el algoritmo.\n" << std::endl;
+        }
+    }
+    else if(nombre=="clear")
+    {
+        borrarPantalla();
+    }
+    else
+    {
+        std::cout << "\nComando no reconocido: " << comando << "\n" << std::endl;
+    }
+}
+
+// Método para mostrar ayuda de los comandos -- Muestra lista de comandos disponibles y su descripción
+template<typename T, typename E>
+void Grafo<T, E>::mostrarAyuda()
+{
+    std::cout << std::left
+              << std::setw(20) << "\nComando"
+              << std::setw(35) << "Parametros"
+              << "Descripcion" << std::endl;
+    std::cout << std::string(120, '-') << std::endl;
+
+    for (const auto& comando : comandos)
+    {
+        std::cout << std::left
+                  << std::setw(20) << comando.getNombre()
+                  << std::setw(35) << comando.getParametros()
+                  << comando.getDescripcion() << std::endl;
+    }
+}
+
+// Método para listar comandos -- Lista los nombres de los comandos disponibles
+template<typename T, typename E>
+void Grafo<T, E>::listarComandos()
+{
+    std::cout << "\nLista de comandos disponibles: \n" << std::endl;
+    for (const auto& comando : comandos)
+    {
+        std::cout << comando.getNombre() << std::endl;
+    }
+}
+
+// Método para borrar pantalla
+template<typename T, typename E>
+void Grafo<T, E>::borrarPantalla()
+{
+
+    system("cls");
+}
+
+template class Grafo<Personaje, Relacion>;
