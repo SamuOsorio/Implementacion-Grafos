@@ -8,9 +8,9 @@ std::string Relacion::getTarget() const {return target;}
 std::string Relacion::getType() const {return type;};
 int Relacion::getPeso() const {return peso;};
 int Relacion::getLibro() const {return libro;};
-    
+
 void Relacion::setSource(std::string source) {this->source = source;}
-void Relacion::setTarger(std::string target) {this->target = target;}
+void Relacion::setTarget(std::string target) {this->target = target;}
 void Relacion::setType(std::string type) {this->type = type;}
 void Relacion::setPeso(int peso) {this->peso = peso;}
 void Relacion::setLibro(int libro) {this->libro = libro;}
